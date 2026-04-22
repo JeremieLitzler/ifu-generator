@@ -76,6 +76,23 @@ CRYPTO_ETP_ISINS = {
     'DE000A40B5N8',  # iShares Bitcoin ETP
 }
 
+# ---------------------------------------------------------------------------
+# Régimes de retenue à la source par préfixe ISIN (zone AA — art. 78 ann. II CGI)
+# ---------------------------------------------------------------------------
+# 'zero'               — 0 % confirmé pour les investisseurs non-résidents ;
+#                        aucune saisie manuelle requise
+# 'treaty_recoverable' — retenue probable ; saisir withholding_tax_native
+#                        depuis le relevé fiscal annuel Yuh ou l'avis de distribution
+# 'unknown'            — situation conventionnelle à vérifier au cas par cas
+WITHHOLDING_REGIME: dict[str, str] = {
+    'IE': 'zero',               # Irlande : 0 % sur distributions OPCVM aux non-résidents
+    'LU': 'zero',               # Luxembourg : 0 % sur distributions OPCVM aux non-résidents
+    'GB': 'zero',               # Royaume-Uni : pas de retenue sur dividendes aux non-résidents
+    'FR': 'zero',               # France : pas de retenue étrangère pour les résidents français
+    'US': 'treaty_recoverable', # 15–30 % retenue NRA ; convention France–USA plafond 15 %
+    'CH': 'treaty_recoverable', # 35 % impôt anticipé (Verrechnungssteuer)
+}
+
 
 # ---------------------------------------------------------------------------
 # Structure de données
@@ -95,7 +112,9 @@ class Transaction:
     commission_native: float
     currency: str             # devise native de la transaction
     is_crypto_etp: bool
-    exchange_fee_eur: float = 0.0   # frais d'autochange CHF→devise attribués (converti en EUR)
+    exchange_fee_eur: float = 0.0        # frais d'autochange CHF→devise attribués (converti en EUR)
+    withholding_tax_native: float = 0.0  # retenue à la source (zone AA) — non fourni par Yuh CSV
+    withholding_tax_eur: float = 0.0     # retenue convertie en EUR (= withholding_tax_native × taux BCE)
     fx_rate_to_eur: Optional[float] = None
     fx_rate_date_used: Optional[str] = None
     total_eur: Optional[float] = None
@@ -532,6 +551,10 @@ def main():
     def out(name: str) -> Path:
         return out_dir / f'{target_year}_{name}'
 
+    def _ligne_2042(isin: str) -> str:
+        """Ligne 2042 pour un dividende : 2DC si ISIN FR (abattement 40 %), sinon 2TR."""
+        return '2DC (éligible abattement 40 %)' if isin.startswith('FR') else '2TR (non éligible)'
+
     # Journal des taux BCE
     fx_csv = out('fx_log.csv')
     with fx_csv.open('w', newline='', encoding='utf-8') as f:
@@ -563,17 +586,25 @@ def main():
         writer.writerow([
             'Date', 'ID', 'Ticker', 'ISIN', 'Titre',
             'Montant brut', 'Devise', 'Taux BCE', 'Date BCE',
-            'Montant EUR', 'Montant arrondi EUR', 'Crypto-ETP', 'Formulaire',
+            'Montant EUR', 'Montant arrondi EUR',
+            'Retenue à la source native (zone AA)',
+            'Retenue à la source EUR (zone AA / ligne 2AB)',
+            'Base DQ EUR (prélèvements sociaux)',
+            'Crypto-ETP', 'Ligne 2042',
         ])
         for d in sorted(year_divs, key=lambda t: t.date):
+            base_dq = round(d.total_eur + d.withholding_tax_eur, 2)
             writer.writerow([
                 d.date.isoformat(), d.row_id, d.ticker, d.isin, d.security_name,
                 f"{d.amount_native:.2f}", d.currency,
                 f"{d.fx_rate_to_eur:.6f}", d.fx_rate_date_used,
                 f"{d.total_eur:.2f}",
                 f"{round(d.total_eur):d}",
+                f"{d.withholding_tax_native:.2f}",
+                f"{d.withholding_tax_eur:.2f}",
+                f"{base_dq:.2f}",
                 'oui' if d.is_crypto_etp else 'non',
-                '2042 (revenus de capitaux mobiliers)',
+                _ligne_2042(d.isin),
             ])
     print(f"📊 Dividendes             → {div_csv}")
 
@@ -731,9 +762,17 @@ def main():
             h("> ⚠ Estimation indicative — consultez votre SIP ou un conseiller fiscal.")
 
     if by_year_2086:
-        h("\n## Formulaire 2086 — ⚠ Informatif seulement")
-        h("À utiliser uniquement si la DGFiP requalifie les crypto-ETPs "
-          "en actifs numériques (PFU 31,4 % en 2026).")
+        h("\n## Formulaire 2086 — ⚠ Informatif seulement (crypto-ETPs)")
+        h("**Classification retenue : valeurs mobilières → formulaire 2074 (art. 150-0 A CGI).**")
+        h("Base légale : l'art. L. 54-10-1 CMF définit les *actifs numériques* en excluant "
+          "explicitement les instruments financiers au sens de l'art. L. 211-1 CMF. "
+          "Les crypto-ETPs (WisdomTree, CoinShares, ETC Group…) sont des valeurs mobilières "
+          "admises sur marchés réglementés (LSE, Xetra, Euronext) — ils sortent donc du champ "
+          "de l'art. 150 VH bis CGI. Source : BOI-RPPM-PVBMI-70-10-10 §20–30.")
+        h("Ce fichier 2086 est produit à titre **précautionnel uniquement**. "
+          "En l'absence de prise de position formelle du DGFiP sur les crypto-ETPs, "
+          "**ne déclarez pas ces montants sur le formulaire 2086**. "
+          "Consultez un conseiller fiscal si vos positions sont significatives.")
         h("Plus-value → case 3AN | Moins-value → case 3BN\n")
         h("| Année | Gain/perte EUR | Arrondi | Cessions | Note |")
         h("|-------|---------------|---------|----------|------|")
@@ -750,11 +789,50 @@ def main():
                   f"{proceeds:.2f} € | imposable |")
 
     if year_divs:
-        h("\n## Dividendes / Distributions — case 2DC ou 2TR du 2042\n")
-        div_total = sum(d.total_eur for d in year_divs)
-        h(f"| Année | Total EUR | Arrondi |")
-        h(f"|-------|-----------|---------|")
-        h(f"| {target_year} | {div_total:+.2f} | {round(div_total):+d} € |")
+        h("\n## Dividendes / Distributions — formulaire 2042\n")
+        div_2dc = [d for d in year_divs if d.isin.startswith('FR')]
+        div_2tr = [d for d in year_divs if not d.isin.startswith('FR')]
+        total_2dc = sum(d.total_eur for d in div_2dc)
+        total_2tr = sum(d.total_eur for d in div_2tr)
+        div_total = total_2dc + total_2tr
+        h("| Ligne | Description | Total EUR | Arrondi |")
+        h("|-------|-------------|-----------|---------|")
+        if div_2dc:
+            h(f"| **2DC** | Distributions éligibles abattement 40 % (ISIN FR) "
+              f"| {total_2dc:+.2f} | {round(total_2dc):+d} € |")
+        if div_2tr:
+            h(f"| **2TR** | Distributions non éligibles (étrangères) "
+              f"| {total_2tr:+.2f} | {round(total_2tr):+d} € |")
+        h(f"| | **Total** | **{div_total:+.2f}** | **{round(div_total):+d} €** |")
+        h(f"\n> Base prélèvements sociaux (zone DQ) : **{round(div_total):+d} €**"
+          f" — Yuh n'ayant pas effectué de retenue, montant brut = montant net déclaré."
+          f" Reporter également sur les lignes 2BH–2CK du formulaire 2042.")
+        withholding_total_eur = sum(d.withholding_tax_eur for d in year_divs)
+        needs_manual = [d for d in year_divs
+                        if d.isin != 'UNKNOWN'
+                        and WITHHOLDING_REGIME.get(d.isin[:2], 'unknown') == 'treaty_recoverable'
+                        and d.withholding_tax_eur == 0.0]
+        unknown_regime = [d for d in year_divs
+                          if d.isin != 'UNKNOWN'
+                          and WITHHOLDING_REGIME.get(d.isin[:2], 'unknown') == 'unknown']
+        if withholding_total_eur > 0:
+            h(f"\n> Retenue à la source étrangère (zone AA / ligne 2AB) :"
+              f" **{withholding_total_eur:.2f} €** — à reporter sur la ligne 2AB du formulaire 2042.")
+        if needs_manual:
+            tickers_str = ', '.join(sorted({d.ticker for d in needs_manual}))
+            h(f"\n> ⚠ Zone AA — saisie manuelle requise pour **{tickers_str}**."
+              f" Ces instruments (préfixe ISIN US ou CH) sont soumis à retenue à la source."
+              f" Consultez le relevé fiscal annuel Yuh, renseignez `withholding_tax_native`"
+              f" dans le CSV des dividendes, puis relancez le script."
+              f" Le crédit récupérable s'impute sur la **ligne 2AB** du formulaire 2042.")
+        if unknown_regime:
+            tickers_str = ', '.join(sorted({d.ticker for d in unknown_regime}))
+            h(f"\n> ℹ Zone AA — régime de retenue non classifié pour **{tickers_str}**"
+              f" (préfixe ISIN inconnu du dictionnaire). Vérifier la convention fiscale applicable.")
+        if not needs_manual and not unknown_regime and withholding_total_eur == 0:
+            h(f"\n> Zone AA (retenue à la source / ligne 2AB) : **0 €** confirmé"
+              f" — tous les dividendes proviennent d'instruments à retenue nulle"
+              f" (IE/LU/GB/FR : pas de retenue sur distributions aux non-résidents).")
 
     h(f"\n## Positions au 31/12/{target_year}\n")
     open_positions = [(isin, p) for isin, p in positions_at_year_end.items()
