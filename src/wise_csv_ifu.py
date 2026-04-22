@@ -508,7 +508,7 @@ def main():
                 fee.date.isoformat(), fee.currency,
                 f"{fee.amount_native:.2f}", f"{fee.fx_rate:.4f}",
                 f"{fee.total_eur:.2f}",
-                'Non déductible en PFU (art. 150-0 D CGI)',
+                'Frais de gestion courants — non déductibles (art. 150-0 D CGI : seuls les frais d\'acquisition sont inclus dans le prix de revient ; même règle sous barème progressif)',
             ])
     total_fees = sum(f.total_eur for f in year_fees)
     print(f"📊 Frais de gestion       → {fees_csv}  ({total_fees:.2f} EUR)")
@@ -641,8 +641,9 @@ def main():
             h(f"| {fee.date.isoformat()} | {fee.total_eur:.2f} |")
         h(f"\n**Total {target_year} : {total_fees:.2f} EUR**")
         h("\n> Frais de gestion prélevés mensuellement sur le compte Wise. "
-          "**Non déductibles sous PFU** (art. 150-0 D CGI). "
-          "Sous option barème progressif, la déductibilité est à vérifier.")
+          "**Non déductibles** (art. 150-0 D CGI) : sous PFU comme sous barème progressif, "
+          "seuls les frais d'*acquisition* sont inclus dans le prix de revient. "
+          "Les frais de gestion courants ne s'y qualifient pas, quelle que soit l'option fiscale choisie.")
 
     # -- Positions au 31/12 --
     h(f"\n## Positions au 31/12/{target_year}\n")
