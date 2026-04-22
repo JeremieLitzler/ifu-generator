@@ -414,7 +414,7 @@ def main():
 
     target_year = args.year
     folder = Path(args.folder)
-    out_dir = Path('ifu') / str(target_year)
+    out_dir = Path('ifu') / 'yuh' / str(target_year)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if not folder.is_dir():
