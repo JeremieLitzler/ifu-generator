@@ -4,7 +4,9 @@ yuh_csv_ifu.py — Calcule l'équivalent d'un IFU à partir des exports CSV Yuh
 pour la déclaration fiscale française (résident fiscal français).
 
 Usage:
-    python3 yuh_csv_ifu.py <année> [--folder <dossier>] [--output <préfixe>] [--cache <fichier_fx>]
+    python3 yuh_csv_ifu.py <année> [--folder <dossier>] [--cache <fichier_fx>]
+                           [-cldp [--penalty-scenario {spontaneous,formal,fraud}]
+                                  [--declaration-deadline YYYY-MM-DD]]
 
 Produit (prefixe par defaut : ifu_<annee>) :
     - <prefix>_transactions.csv  : toutes les operations de l'annee avec conversion EUR
@@ -30,6 +32,7 @@ Hypothèses :
 import argparse
 import csv
 import json
+import math
 import re
 import sys
 from dataclasses import dataclass, asdict
@@ -354,11 +357,41 @@ def main():
     )
     parser.add_argument('year', type=int,
                         help='Année fiscale cible (ex. 2024)')
-    parser.add_argument('--folder', '-f', default='transactions',
+    parser.add_argument('--folder', default='transactions',
                         help="Dossier contenant les CSV Yuh (défaut: 'transactions')")
     parser.add_argument('--cache', default='fx_cache.json',
                         help="Fichier cache des taux BCE (défaut: fx_cache.json)")
+    parser.add_argument('--calculate-late-declaration-penalties', '-cldp',
+                        action='store_true',
+                        help="Calcule les pénalités de déclaration tardive (formulaire 2074 uniquement)")
+    parser.add_argument('--penalty-scenario',
+                        choices=['spontaneous', 'formal', 'fraud'],
+                        default='spontaneous',
+                        help="Scénario de majoration : spontaneous=10%%, formal=40%%, "
+                             "fraud=80%% (défaut: spontaneous)")
+    parser.add_argument('--declaration-deadline',
+                        default=None,
+                        metavar='YYYY-MM-DD',
+                        help="Date limite de déclaration originale "
+                             "(défaut: 1er juin de l'année suivante)")
+    parser.add_argument('-s', action='store_true', dest='penalty_s',
+                        help="Alias : -cldp --penalty-scenario spontaneous (correction spontanée, majoration 10 %%)")
+    parser.add_argument('-f', action='store_true', dest='penalty_f',
+                        help="Alias : -cldp --penalty-scenario formal (après mise en demeure, majoration 40 %%)")
+    parser.add_argument('-ff', action='store_true', dest='penalty_ff',
+                        help="Alias : -cldp --penalty-scenario fraud (manœuvres frauduleuses, majoration 80 %%)")
     args = parser.parse_args()
+
+    # Résoudre les alias de scénario de pénalité
+    if args.penalty_ff:
+        args.calculate_late_declaration_penalties = True
+        args.penalty_scenario = 'fraud'
+    elif args.penalty_f:
+        args.calculate_late_declaration_penalties = True
+        args.penalty_scenario = 'formal'
+    elif args.penalty_s:
+        args.calculate_late_declaration_penalties = True
+        args.penalty_scenario = 'spontaneous'
 
     target_year = args.year
     folder = Path(args.folder)
@@ -652,6 +685,50 @@ def main():
             h(f"| {year} | {total:+.2f} | {rounded:+d} € | {box} |")
     else:
         h(f"Aucune cession en {target_year} — rien à déclarer.")
+
+    if args.calculate_late_declaration_penalties and by_year_2074:
+        _PENALTY_RATES = {
+            'spontaneous': (0.10, "correction spontanée avant mise en demeure"),
+            'formal':      (0.40, "après mise en demeure"),
+            'fraud':       (0.80, "manœuvres frauduleuses"),
+        }
+        penalty_rate, scenario_label = _PENALTY_RATES[args.penalty_scenario]
+
+        if args.declaration_deadline:
+            deadline = datetime.strptime(args.declaration_deadline, '%Y-%m-%d').date()
+        else:
+            deadline = date(target_year + 1, 6, 1)
+
+        today = date.today()
+        months_delay = (
+            math.ceil((today - deadline).days / 30.4375)
+            if today > deadline else 0
+        )
+
+        for year_str in sorted(by_year_2074):
+            net_gain = by_year_2074[year_str]
+            if net_gain <= 0:
+                h(f"\n## Pénalités de déclaration tardive — Formulaire 2074 ({year_str})\n")
+                h("Moins-value ou gain nul — aucun impôt dû, pas de pénalité applicable.")
+                continue
+
+            tax_owed = round(net_gain * 0.30, 2)
+            late_interest = round(tax_owed * 0.002 * months_delay, 2)
+            penalty_surcharge = round(tax_owed * penalty_rate, 2)
+            total_due = round(tax_owed + late_interest + penalty_surcharge, 2)
+
+            h(f"\n## Pénalités de déclaration tardive — Formulaire 2074 ({year_str})\n")
+            h(f"> Scénario : **{scenario_label}** · "
+              f"Délai : **{months_delay} mois** "
+              f"(échéance : {deadline.isoformat()}, calcul au {today.isoformat()})\n")
+            h("| | Montant |")
+            h("|---|---------|")
+            h(f"| Plus-value nette | {net_gain:+.2f} € |")
+            h(f"| Impôt dû (PFU 30 %) | {tax_owed:.2f} € |")
+            h(f"| Intérêts de retard (0,20 % × {months_delay} mois) | {late_interest:.2f} € |")
+            h(f"| Majoration ({penalty_rate * 100:.0f} %) | {penalty_surcharge:.2f} € |")
+            h(f"| **Total estimé à régulariser** | **{total_due:.2f} €** |\n")
+            h("> ⚠ Estimation indicative — consultez votre SIP ou un conseiller fiscal.")
 
     if by_year_2086:
         h("\n## Formulaire 2086 — ⚠ Informatif seulement")

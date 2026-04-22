@@ -18,7 +18,14 @@ Two scripts produce French tax declaration CSVs for French-resident cross-border
 pip install requests
 
 # Run for a target year (reads all available CSVs for correct PMP)
-python src/yuh_csv_ifu.py 2024 [--folder transactions] [--output ifu_2024] [--cache fx_cache.json]
+python src/yuh_csv_ifu.py 2024 [--folder transactions] [--cache fx_cache.json]
+
+# With late-declaration penalty estimate (shorthand flags)
+python src/yuh_csv_ifu.py 2024 -s   # spontaneous correction (10 %)
+python src/yuh_csv_ifu.py 2024 -f   # after formal notice (40 %)
+python src/yuh_csv_ifu.py 2024 -ff  # fraud (80 %)
+# Or explicitly:
+python src/yuh_csv_ifu.py 2024 -cldp [--penalty-scenario {spontaneous,formal,fraud}] [--declaration-deadline YYYY-MM-DD]
 ```
 
 The script reads **all** `ACTIVITIES_REPORT-*.CSV` files in `--folder` to compute the correct cumulative PMP, but outputs only the target year's transactions and gains.
