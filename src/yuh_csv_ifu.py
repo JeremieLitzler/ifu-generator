@@ -422,18 +422,18 @@ def main():
         sys.exit(1)
 
     # Tous les CSV disponibles, triés par année, pour un PMP correct
-    all_csvs = sorted(folder.glob('ACTIVITIES_REPORT-*.CSV'))
-    all_csvs += sorted(folder.glob('ACTIVITIES_REPORT-*.csv'))
+    all_csvs = sorted(folder.glob('yuh_ACTIVITIES_REPORT-*.CSV'))
+    all_csvs += sorted(folder.glob('yuh_ACTIVITIES_REPORT-*.csv'))
     all_csvs = sorted(set(all_csvs))
 
     if not all_csvs:
-        print(f"Aucun fichier ACTIVITIES_REPORT-*.CSV trouvé dans {folder}",
+        print(f"Aucun fichier yuh_ACTIVITIES_REPORT-*.CSV trouvé dans {folder}",
               file=sys.stderr)
         sys.exit(1)
 
-    target_csv = folder / f'ACTIVITIES_REPORT-{target_year}.CSV'
+    target_csv = folder / f'yuh_ACTIVITIES_REPORT-{target_year}.CSV'
     if not target_csv.exists():
-        target_csv = folder / f'ACTIVITIES_REPORT-{target_year}.csv'
+        target_csv = folder / f'yuh_ACTIVITIES_REPORT-{target_year}.csv'
     if not target_csv.exists():
         print(f"Fichier introuvable pour l'année {target_year}: {target_csv}",
               file=sys.stderr)
@@ -444,7 +444,7 @@ def main():
     all_exchange_fees: list[dict] = []
 
     for csv_path in all_csvs:
-        year_tag = csv_path.stem.replace('ACTIVITIES_REPORT-', '')
+        year_tag = csv_path.stem.replace('yuh_ACTIVITIES_REPORT-', '')
         print(f"\n📄 Lecture {csv_path.name} ...")
         txs, fees = parse_csv_file(csv_path)
         all_txs.extend(txs)
