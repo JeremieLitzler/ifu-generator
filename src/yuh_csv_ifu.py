@@ -806,7 +806,10 @@ def main():
         h(f"| | **Total** | **{div_total:+.2f}** | **{round(div_total):+d} €** |")
         h(f"\n> Base prélèvements sociaux (zone DQ) : **{round(div_total):+d} €**"
           f" — Yuh n'ayant pas effectué de retenue, montant brut = montant net déclaré."
-          f" Reporter également sur les lignes 2BH–2CK du formulaire 2042.")
+          f" Sous PFU (défaut) : les 17,2 % sont calculés automatiquement sur les montants"
+          f" déclarés en 2TR / 2DC — aucune ligne supplémentaire à renseigner."
+          f" Sous option barème progressif : la CSG déductible (6,8 %) est à reporter"
+          f" ligne **2CG** du formulaire 2042.")
         withholding_total_eur = sum(d.withholding_tax_eur for d in year_divs)
         needs_manual = [d for d in year_divs
                         if d.isin != 'UNKNOWN'

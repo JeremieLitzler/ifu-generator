@@ -1,7 +1,7 @@
 # Fix: IFU 2561-NOT compliance gaps in yuh_csv_ifu.py
 
 Created: 2026-04-22
-Reference: review against notice N°2561-NOT (N°50673#27, revenus 2024)
+Reference: review against notice N°2561-NOT (N°50673#26, revenus 2024)
 
 ## Context
 
@@ -97,17 +97,19 @@ already a maintained invariant of the project.
 
 For French tax residents, art. 117 quater and 125 A CGI require the gross amount of
 dividends and fixed-income products to also be reported in **zone DQ** of form 2561,
-which serves as the base for _prélèvements sociaux_ (17.2 %). Since Yuh does not
-withhold French social contributions, the user must declare the gross themselves on
-form 2042 (line **2CG** for CSG-déductible products, or the relevant social
-contribution lines). The current output makes no reference to zone DQ or its form 2042
-equivalents, leaving the user to infer this obligation.
+which serves as the base for _prélèvements sociaux_ (17.2 %). The current output makes
+no reference to zone DQ, leaving the user to infer this obligation.
+
+Zone DQ is what the broker fills on the IFU. For the taxpayer's form 2042:
+- Under **PFU (default)**: the 17.2 % prélèvements sociaux are computed automatically
+  from the amounts declared on lines 2TR / 2DC — no separate PS line to fill.
+- Under **barème progressif** (opt-in): same 2TR / 2DC amounts; the CSG déductible
+  portion (6.8 %) may be reported on line **2CG**.
 
 **Code change needed**: add a `base_DQ_eur` column to `*_dividendes.csv` equal to
 `total_eur` for each dividend row (gross = net since Yuh does not withhold). In the
-console/README summary, add a note under the dividends table stating: _"Ces montants
-constituent également la base des prélèvements sociaux (zone DQ / lignes 2BH–2CK du
-2042). Yuh n'ayant pas effectué de retenue, le montant brut = montant net déclaré."_
+console/README summary, add a note explaining the DQ base and the correct form 2042
+treatment under PFU vs. barème progressif.
 
 **No manual step required** because Yuh does not withhold, so gross equals net. If
 issue 1 is also fixed and a non-zero `withholding_tax_eur` is recorded, then
