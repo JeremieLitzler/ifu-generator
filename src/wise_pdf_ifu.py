@@ -411,7 +411,7 @@ def main():
 
     target_year = args.year
     folder = Path(args.folder)
-    out_dir = Path('ifu') / 'wise' / str(target_year)
+    out_dir = Path('ifu') / str(target_year) / 'wise'
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if not folder.is_dir():
@@ -674,7 +674,7 @@ def main():
             h(f"| {fee.date.isoformat()} | {fee.total_eur:.2f} | frais gestion mensuel |")
         h("\n> Frais de gestion de portefeuille prélevés directement sur le compte Wise. "
           "**Non déductibles sous PFU** (art. 150-0 D CGI). "
-          "Sous option barème progressif, la déductibilité est à vérifier avec votre SIP.")
+          "Sous option barème progressif, la déductibilité est à vérifier avec votre Service des Impôts des Particuliers (SIP).")
 
     # -- Positions au 31/12 --
     h(f"\n## Positions au 31/12/{target_year}\n")

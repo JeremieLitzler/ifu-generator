@@ -414,7 +414,7 @@ def main():
 
     target_year = args.year
     folder = Path(args.folder)
-    out_dir = Path('ifu') / 'yuh' / str(target_year)
+    out_dir = Path('ifu') / str(target_year) / 'yuh'
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if not folder.is_dir():
@@ -743,10 +743,11 @@ def main():
                 h("Moins-value ou gain nul — aucun impôt dû, pas de pénalité applicable.")
                 continue
 
-            tax_owed = round(net_gain * 0.30, 2)
-            late_interest = round(tax_owed * 0.002 * months_delay, 2)
-            penalty_surcharge = round(tax_owed * penalty_rate, 2)
-            total_due = round(tax_owed + late_interest + penalty_surcharge, 2)
+            net_gain_rounded = round(net_gain)
+            tax_owed = round(net_gain_rounded * 0.30)
+            late_interest = round(tax_owed * 0.002 * months_delay)
+            penalty_surcharge = round(tax_owed * penalty_rate)
+            total_due = tax_owed + late_interest + penalty_surcharge
 
             h(f"\n## Pénalités de déclaration tardive — Formulaire 2074 ({year_str})\n")
             h(f"> Scénario : **{scenario_label}** · "
@@ -754,12 +755,12 @@ def main():
               f"(échéance : {deadline.isoformat()}, calcul au {today.isoformat()})\n")
             h("| | Montant |")
             h("|---|---------|")
-            h(f"| Plus-value nette | {net_gain:+.2f} € |")
-            h(f"| Impôt dû (PFU 30 %) | {tax_owed:.2f} € |")
-            h(f"| Intérêts de retard (0,20 % × {months_delay} mois) | {late_interest:.2f} € |")
-            h(f"| Majoration ({penalty_rate * 100:.0f} %) | {penalty_surcharge:.2f} € |")
-            h(f"| **Total estimé à régulariser** | **{total_due:.2f} €** |\n")
-            h("> ⚠ Estimation indicative — consultez votre SIP ou un conseiller fiscal.")
+            h(f"| Plus-value nette (arrondie, case 3VG) | {net_gain_rounded:+d} € |")
+            h(f"| Impôt dû (PFU 30 %) | {tax_owed} € |")
+            h(f"| Intérêts de retard (0,20 % × {months_delay} mois) | {late_interest} € |")
+            h(f"| Majoration ({penalty_rate * 100:.0f} %) | {penalty_surcharge} € |")
+            h(f"| **Total estimé à régulariser** | **{total_due} €** |\n")
+            h("> ⚠ Estimation indicative — consultez votre Service des Impôts des Particuliers (SIP) ou un conseiller fiscal.")
 
     if by_year_2086:
         h("\n## Formulaire 2086 — ⚠ Informatif seulement (crypto-ETPs)")

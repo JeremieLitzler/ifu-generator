@@ -30,14 +30,14 @@ python src/yuh_csv_ifu.py 2024 -cldp [--penalty-scenario {spontaneous,formal,fra
 
 The script reads **all** `ACTIVITIES_REPORT-*.CSV` files in `--folder` to compute the correct cumulative PMP, but outputs only the target year's transactions and gains.
 
-Output files (prefixed with `ifu_<year>` by default):
+Output directory: `ifu/<year>/yuh/`
 
-- `*_transactions.csv` — year's operations with multi-currency→EUR conversion
-- `*_gains_2074.csv` — capital gains for form 2074 (securities)
-- `*_gains_2086.csv` — informational crypto-ETP gains for form 2086
-- `*_dividendes.csv` — dividends/distributions
-- `*_summary.csv` — positions + PMP at 31/12 of target year
-- `*_fx_log.csv` — ECB rate log
+- `<year>_transactions.csv` — year's operations with multi-currency→EUR conversion
+- `<year>_gains_2074.csv` — capital gains for form 2074 (securities)
+- `<year>_gains_2086.csv` — informational crypto-ETP gains for form 2086
+- `<year>_dividendes.csv` — dividends/distributions
+- `<year>_summary.csv` — positions + PMP at 31/12 of target year
+- `<year>_fx_log.csv` — ECB rate log
 
 ## Supporting modules
 

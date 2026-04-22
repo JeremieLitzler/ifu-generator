@@ -384,7 +384,7 @@ def main():
 
     target_year = args.year
     folder = Path(args.folder)
-    out_dir = Path('ifu') / 'wise' / str(target_year)
+    out_dir = Path('ifu') / str(target_year) / 'wise'
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if not folder.is_dir():
@@ -610,22 +610,23 @@ def main():
         months_delay = (
             math.ceil((today - deadline).days / 30.4375) if today > deadline else 0
         )
-        tax_owed = round(net_gain * 0.30, 2)
-        late_interest = round(tax_owed * 0.002 * months_delay, 2)
-        surcharge = round(tax_owed * penalty_rate, 2)
-        total_due = round(tax_owed + late_interest + surcharge, 2)
+        net_gain_rounded = round(net_gain)
+        tax_owed = round(net_gain_rounded * 0.30)
+        late_interest = round(tax_owed * 0.002 * months_delay)
+        surcharge = round(tax_owed * penalty_rate)
+        total_due = tax_owed + late_interest + surcharge
         h(f"\n## Pénalités — Formulaire 2074 ({target_year})\n")
         h(f"> Scénario : **{scenario_label}** · "
           f"Délai : **{months_delay} mois** "
           f"(échéance : {deadline.isoformat()}, calcul au {today.isoformat()})\n")
         h("| | Montant |")
         h("|---|---------|")
-        h(f"| Plus-value nette | {net_gain:+.2f} € |")
-        h(f"| Impôt dû (PFU 30 %) | {tax_owed:.2f} € |")
-        h(f"| Intérêts de retard (0,20 % × {months_delay} mois) | {late_interest:.2f} € |")
-        h(f"| Majoration ({penalty_rate * 100:.0f} %) | {surcharge:.2f} € |")
-        h(f"| **Total estimé** | **{total_due:.2f} €** |\n")
-        h("> ⚠ Estimation indicative — consultez votre SIP ou un conseiller fiscal.")
+        h(f"| Plus-value nette (arrondie, case 3VG) | {net_gain_rounded:+d} € |")
+        h(f"| Impôt dû (PFU 30 %) | {tax_owed} € |")
+        h(f"| Intérêts de retard (0,20 % × {months_delay} mois) | {late_interest} € |")
+        h(f"| Majoration ({penalty_rate * 100:.0f} %) | {surcharge} € |")
+        h(f"| **Total estimé** | **{total_due} €** |\n")
+        h("> ⚠ Estimation indicative — consultez votre Service des Impôts des Particuliers (SIP) ou un conseiller fiscal.")
 
     # -- Dividendes --
     h("\n## Dividendes / Distributions — formulaire 2042")
