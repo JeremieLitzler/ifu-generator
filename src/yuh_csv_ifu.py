@@ -21,8 +21,9 @@ Hypothèses :
     - Taux de change : taux de référence BCE (via api.frankfurter.dev).
     - Achat : cout = valeur absolue du debit (frais inclus dans le montant debite).
     - Vente : produit de cession = credit (net de frais).
-    - Les frais d'autochange CHF/devise (BANK_AUTO_ORDER_EXECUTED) sont journalises
-      separement car non attribuables a un titre specifique de maniere fiable.
+    - Les frais d'autochange CHF/devise (BANK_AUTO_ORDER_EXECUTED) sont attribues a
+      l'ordre d'investissement correspondant (meme date, meme devise) quand possible,
+      et sinon journalises separement avec leur equivalent EUR.
     - Les crypto-ETPs sont classes comme valeurs mobilieres (formulaire 2074).
       Un recapitulatif 2086 est aussi produit par precaution.
 """
@@ -91,6 +92,7 @@ class Transaction:
     commission_native: float
     currency: str             # devise native de la transaction
     is_crypto_etp: bool
+    exchange_fee_eur: float = 0.0   # frais d'autochange CHF→devise attribués (converti en EUR)
     fx_rate_to_eur: Optional[float] = None
     fx_rate_date_used: Optional[str] = None
     total_eur: Optional[float] = None
@@ -312,7 +314,7 @@ def compute_gains(txs: list[Transaction]) -> dict:
 
         if tx.type == 'buy':
             p['quantity'] += tx.quantity
-            p['total_cost_eur'] += tx.total_eur
+            p['total_cost_eur'] += tx.total_eur + tx.exchange_fee_eur
         elif tx.type == 'sell':
             if p['quantity'] <= 0:
                 print(f"  ⚠ Vente sans position pour {tx.isin} le {tx.date}",
@@ -435,6 +437,36 @@ def main():
             sys.exit(2)
 
     print(f"  ✓ {len(all_txs)} transactions converties")
+
+    # --- Attribution des frais d'autochange aux ordres d'investissement ---
+    buys_by_date_ccy: dict = {}
+    for tx in all_txs:
+        if tx.type == 'buy':
+            buys_by_date_ccy.setdefault((tx.date, tx.currency), []).append(tx)
+
+    unattributed_fees: list[dict] = []
+    attributed_count = 0
+    for fee in all_exchange_fees:
+        key = (fee['date'], fee['credit_currency'])
+        candidates = buys_by_date_ccy.get(key, [])
+        chf_rate, _ = fx.get(fee['date'], 'CHF')
+        fee_eur = round(fee['fee_chf'] * chf_rate, 4)
+        if len(candidates) == 1:
+            candidates[0].exchange_fee_eur += fee_eur
+            attributed_count += 1
+        else:
+            fee['fee_eur'] = fee_eur
+            unattributed_fees.append(fee)
+            if len(candidates) > 1:
+                print(
+                    f"  ⚠ Frais autochange {fee['date']} {fee['credit_currency']}: "
+                    f"{len(candidates)} achats candidats — non attribué",
+                    file=sys.stderr,
+                )
+    if attributed_count:
+        print(f"  ✓ {attributed_count} frais d'autochange attribués aux ordres d'achat")
+    if unattributed_fees:
+        print(f"  ⚠ {len(unattributed_fees)} frais d'autochange non attribués")
 
     # --- Calcul des plus-values sur tout l'historique ---
     positions = compute_gains(all_txs)
@@ -661,11 +693,13 @@ def main():
     else:
         h("Aucune position ouverte.")
 
-    year_fees = [e for e in all_exchange_fees if e['date'].year == target_year]
-    if year_fees:
-        total_fees_chf = sum(e['fee_chf'] for e in year_fees)
+    year_unattributed = [e for e in unattributed_fees if e['date'].year == target_year]
+    if year_unattributed:
+        total_fees_chf = sum(e['fee_chf'] for e in year_unattributed)
+        total_fees_eur = sum(e['fee_eur'] for e in year_unattributed)
         h(f"\n## Frais d'autochange non attribués\n")
-        h(f"{total_fees_chf:.2f} CHF sur {len(year_fees)} opération(s). "
+        h(f"{total_fees_chf:.2f} CHF ({total_fees_eur:.2f} EUR) "
+          f"sur {len(year_unattributed)} opération(s). "
           f"Coûts d'acquisition non attribués à un titre spécifique — "
           f"ajustement manuel si souhaité.")
 

@@ -12,4 +12,4 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$ROOT"
-python yuh_csv_ifu.py "$YEAR"
+python src/yuh_csv_ifu.py "$YEAR"
