@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ':*)",
+      "Bash(python yuh_csv_ifu.py *)",
+      "Bash(rtk git:*)"
+    ]
+  }
+}
