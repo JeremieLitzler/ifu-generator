@@ -31,7 +31,6 @@ Hypothèses :
 """
 import argparse
 import csv
-import json
 import math
 import re
 import sys
@@ -46,12 +45,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-try:
-    import requests
-except ImportError:
-    print("Manque une dépendance. Installez avec : pip install requests", file=sys.stderr)
-    sys.exit(1)
-
+from fx_cache import FXCache
 from constants import (
     INVEST_ORDER_EXECUTED,
     INVEST_RECURRING_ORDER_EXECUTED,
@@ -119,48 +113,6 @@ class Transaction:
     fx_rate_date_used: Optional[str] = None
     total_eur: Optional[float] = None
     price_eur: Optional[float] = None
-
-
-# ---------------------------------------------------------------------------
-# Cache des taux de change BCE (multi-devises)
-# ---------------------------------------------------------------------------
-
-class FXCache:
-    """Cache persistant des taux {currency}→EUR de la BCE via api.frankfurter.dev."""
-
-    API = "https://api.frankfurter.dev/v1/{date}?from={currency}&to=EUR"
-
-    def __init__(self, cache_path: Path):
-        self.cache_path = cache_path
-        self.cache: dict[str, dict] = {}
-        if cache_path.exists():
-            try:
-                self.cache = json.loads(cache_path.read_text())
-            except Exception:
-                self.cache = {}
-
-    def _save(self):
-        self.cache_path.write_text(json.dumps(self.cache, indent=2, sort_keys=True))
-
-    def get(self, d: date, currency: str = 'CHF') -> tuple[float, str]:
-        """Retourne (taux→EUR, date_BCE_réelle). Retourne (1.0, date) pour EUR."""
-        if currency == 'EUR':
-            return 1.0, d.isoformat()
-        key = f"{d.isoformat()}_{currency}"
-        if key in self.cache:
-            entry = self.cache[key]
-            return entry['rate'], entry['bce_date']
-        url = self.API.format(date=d.isoformat(), currency=currency)
-        r = requests.get(url, timeout=15)
-        r.raise_for_status()
-        payload = r.json()
-        if 'rates' not in payload or 'EUR' not in payload['rates']:
-            raise RuntimeError(f"Réponse inattendue pour {key}: {payload}")
-        rate = float(payload['rates']['EUR'])
-        bce_date = payload.get('date', d.isoformat())
-        self.cache[key] = {'rate': rate, 'bce_date': bce_date}
-        self._save()
-        return rate, bce_date
 
 
 # ---------------------------------------------------------------------------
