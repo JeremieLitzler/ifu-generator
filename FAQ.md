@@ -1,72 +1,8 @@
-# FAQ
+# FAQ — Tax & Business
 
 ## What is ifu-generator?
 
 A set of Python scripts that generate French tax declaration data for French-resident cross-border workers (frontaliers) who hold investment accounts at Yuh/Swissquote and/or Wise Assets. It produces CSVs ready to fill in forms 2074, 2086, and 2042.
-
----
-
-## Is the README meant for users or developers?
-
-The README is for **users**: it covers what the tool does, which brokers are supported, how to run the scripts, what output files are produced, and which tax rules are applied. No Python internals.
-
-`CLAUDE.md` is for **developers/Claude Code**: it covers the script inventory, internal architecture (parsing, FX cache, PMP logic), and implementation rules.
-
----
-
-## What documentation files exist and what do they cover?
-
-| File | Audience | Content |
-|------|----------|---------|
-| `README.md` | Users | Business usage — brokers, IFU forms, commands, output files, tax rules |
-| `CLAUDE.md` | Developers / Claude Code | Technical details — script inventory, architecture, implementation rules |
-| `FAQ.md` | Users | Common questions about the project |
-| `CALCULATIONS_ACCURACY.md` | Users / Developers | Confidence levels per computation area |
-
----
-
-## Which scripts exist and what do they do?
-
-| Script | Purpose |
-|--------|---------|
-| `src/yuh_csv_ifu.py` | Processes Yuh/Swissquote CSV exports → IFU CSVs |
-| `src/wise_csv_ifu.py` | Processes Wise Assets CSV exports → IFU CSVs (primary) |
-| `src/wise_pdf_ifu.py` | Processes Wise annual PDF tax statement → IFU CSVs (cross-check / fallback) |
-| `src/unified_readme.py` | Merges Yuh + Wise outputs into a single `ifu/<year>/README.md` |
-| `src/fees_by_activity.py` | Debug utility: groups Yuh fees by activity type |
-| `src/constants.py` | Activity type constants for Yuh CSV rows |
-| `src/ticker_isin.py` | Ticker → ISIN mapping for Yuh securities |
-
----
-
-## What shell wrappers are in `scripts/` and how do I use them?
-
-| Script | Calls | Usage |
-|--------|-------|-------|
-| `scripts/generate_ifu_yuh.sh` | `src/yuh_csv_ifu.py` | `bash scripts/generate_ifu_yuh.sh <year> [options]` |
-| `scripts/generate_ifu_wise.sh` | `src/wise_csv_ifu.py` | `bash scripts/generate_ifu_wise.sh <year> [options]` |
-
-Both wrappers pass all arguments through to the underlying Python script (`"$@"`), so every optional flag — `--folder`, `--cache`, `-s`, `-f`, `-ff` — works exactly as documented for the Python scripts.
-
-```bash
-# Examples
-bash scripts/generate_ifu_yuh.sh 2024
-bash scripts/generate_ifu_wise.sh 2024 --folder transactions -s
-```
-
----
-
-## What filename format does `yuh_csv_ifu.py` expect for input CSV files?
-
-Files must be named `yuh_ACTIVITIES_REPORT-<year>.CSV` (or `.csv`) and placed inside the folder specified by `--folder` (default: `transactions/`). The `yuh_` prefix distinguishes Yuh exports from Wise files when both brokers' exports share the same folder.
-
-Example: `transactions/yuh_ACTIVITIES_REPORT-2024.CSV`
-
----
-
-## What happened to `generate_ifu.sh`?
-
-It was renamed to `generate_ifu_yuh.sh` to match the broker-specific naming convention alongside `generate_ifu_wise.sh`. There is no longer a generic `generate_ifu.sh`.
 
 ---
 
@@ -90,15 +26,15 @@ ECB (European Central Bank) rates fetched via `api.frankfurter.dev`. If a transa
 
 ## Are broker commissions included in the cost basis?
 
-Yes. For Yuh, the cost basis of a buy = `abs(DEBIT)`, which includes the Yuh commission. Auto-exchange fees (`BANK_AUTO_ORDER_EXECUTED`) are also added to the cost basis of the corresponding buy order, as they are *frais d'acquisition* under the PMP method.
+It depends on the broker and the fee type:
 
----
+**Yuh** — Yes. The cost basis of a buy = `abs(DEBIT)`, which already includes the Yuh transaction commission. Auto-exchange fees (`BANK_AUTO_ORDER_EXECUTED`) are also added to the cost basis of the corresponding buy order, as they are *frais d'acquisition* under the PMP method.
 
-## How are BANK_AUTO_ORDER_EXECUTED auto-exchange fees matched to a specific buy order?
+**Wise** — No. Art. 150-0 D CGI defines the capital gain as `prix de cession − prix de revient`. The *prix de revient* can only include the acquisition price plus **frais d'acquisition** — fees paid *at the moment of buying*. Wise's monthly platform fees (`FEE_CHARGE` rows) are *frais de gestion courants*, not frais d'acquisition, so they cannot be added to the cost basis under either tax regime (PFU or barème progressif).
 
-The script matches each auto-exchange fee to a buy transaction using two criteria: (1) same date, and (2) same foreign currency (the exchange's `CREDIT CURRENCY` equals the buy's `DEBIT CURRENCY`). When exactly one buy satisfies both criteria, the CHF fee is converted to EUR at the BCE rate for that date and added to that transaction's `exchange_fee_eur` field, which flows into the PMP cost basis.
+The historical deduction for *frais de garde* that existed before 2018 applied only to *revenus de capitaux mobiliers* (dividends, interest), not to capital gains — and was suppressed by the Finance Law 2017 alongside the introduction of PFU.
 
-Amount-based matching is not used — the exchanged USD amount and the buy's USD debit are not expected to match exactly due to how Yuh books the two legs internally.
+Wise fees are logged in `<year>_fees.csv` for records but have no effect on the computed gain.
 
 ---
 
@@ -114,27 +50,15 @@ Yes. Both `INVEST_ORDER_EXECUTED` and `INVEST_RECURRING_ORDER_EXECUTED` rows are
 
 ---
 
-## Is there an audit trail for attributed auto-exchange fees in the output CSVs?
-
-Yes. The `*_transactions.csv` output includes an `exchange_fee_eur` column showing the EUR-converted auto-exchange fee attributed to each buy transaction. A value of `0.0` means no fee was attributed — either the buy was in CHF (no auto-exchange needed) or the fee was ambiguous/unmatched and reported in the lump-sum section instead.
-
----
-
-## Are Wise management fees deductible?
-
-No — and this applies under **both** PFU and the barème progressif option.
-
-Art. 150-0 D CGI defines the capital gain as `prix de cession − prix de revient`. The *prix de revient* can only include the acquisition price plus **frais d'acquisition** — fees paid *at the moment of buying* (brokerage commissions, transaction taxes). Wise's monthly platform fees are *frais de gestion courants* (ongoing management charges), not frais d'acquisition, so they cannot be added to the cost basis under either tax regime.
-
-The historical deduction for *frais de garde* that existed before 2018 applied only to *revenus de capitaux mobiliers* (dividends, interest), not to capital gains — and was suppressed by the Finance Law 2017 alongside the introduction of PFU.
-
-The fees are logged in `<year>_fees.csv` for records but have no impact on the computed gain.
-
----
-
 ## How are crypto-ETPs handled?
 
-Crypto-ETPs (WisdomTree, CoinShares, ETC Group, etc.) are classified as **valeurs mobilières** and their gains go on **form 2074**, not form 2086. Legal basis: art. L. 54-10-1 CMF defines *actifs numériques* and explicitly excludes financial instruments (art. L. 211-1 CMF). Crypto-ETPs are admitted to trading on regulated markets (LSE, Xetra, Euronext), carry an ISIN, and are issued by regulated entities — so they fall outside the art. 150 VH bis CGI / form 2086 regime by statute (confirmed at BOI-RPPM-PVBMI-70-10-10 §20–30).
+Crypto-ETPs (WisdomTree, CoinShares, ETC Group, etc.) are classified as **valeurs mobilières** and their gains go on **form 2074**, not form 2086.
+
+Legal basis:
+
+- [Art. L. 54-10-1 CMF](https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000038509570/) defines *actifs numériques* and explicitly excludes financial instruments within the meaning of [art. L. 211-1 CMF](https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000032469968).
+- Crypto-ETPs are admitted to trading on regulated markets (LSE, Xetra, Euronext), carry an ISIN, and are issued by regulated entities — so they qualify as financial instruments and fall outside the [art. 150 VH bis CGI](https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000038612228/) / form 2086 regime by statute.
+- The DGFiP's own scope commentary confirms this at [BOI-RPPM-PVBMC-30-10](https://bofip.impots.gouv.fr/bofip/11967-PGP.html/identifiant=BOI-RPPM-PVBMC-30-10-20190902) (*Cession d'actifs numériques — Champ d'application*): tokens that qualify as financial instruments are excluded from the actifs numériques regime.
 
 A precautionary `<year>_gains_2086.csv` is also produced in case the DGFiP ever issues a contrary ruling, but **do not file form 2086 for these instruments**. The list of crypto-ETP ISINs is maintained in `CRYPTO_ETP_ISINS` inside `src/yuh_csv_ifu.py` and must be updated when new ones are held.
 
@@ -153,7 +77,9 @@ This is already a maintained invariant since the ISIN is always present in `tick
 
 ## How does the script determine whether foreign withholding tax (zone AA) applies to a dividend?
 
-It maps the two-letter ISIN country prefix to one of three regimes via the `WITHHOLDING_REGIME` dict:
+Zone AA is the IFU 2561 field for foreign withholding tax on dividends (*retenue à la source prélevée par l'État de la source*). It maps to **ligne 2AB** on form 2042 as a recoverable tax credit.
+
+The script maps the two-letter ISIN country prefix to one of three regimes via the `WITHHOLDING_REGIME` dict:
 
 | Regime | Prefixes | Behaviour |
 |--------|----------|-----------|
@@ -161,7 +87,7 @@ It maps the two-letter ISIN country prefix to one of three regimes via the `WITH
 | `treaty_recoverable` | US, CH | ⚠ per-ticker warning; manual entry of `withholding_tax_native` required from the Yuh *relevé fiscal annuel* |
 | `unknown` | all others | ℹ advisory; check the applicable tax treaty |
 
-The recovered withholding goes on **ligne 2AB** of form 2042.
+The recovered withholding goes on **ligne 2AB** of form 2042 (crédit d'impôt étranger).
 
 ---
 
@@ -178,7 +104,7 @@ Because the **fund domicile country** determines what is withheld at the investo
 
 ## What is zone DQ and how do I declare prélèvements sociaux on form 2042?
 
-Zone DQ is the line the **broker** fills on the IFU to declare the social contributions base (montant brut des revenus distribués). Since Yuh does not withhold, the gross equals the net and `base_DQ_eur` in `<year>_dividendes.csv` equals the dividend amount.
+Zone DQ is the IFU 2561 field for the social contributions base (*montant brut des revenus distribués soumis aux prélèvements sociaux*). It is the line the **broker** fills on the IFU. Since Yuh does not withhold, the gross equals the net and `base_DQ_eur` in `<year>_dividendes.csv` equals the dividend amount.
 
 For your **own form 2042** declaration:
 
@@ -211,41 +137,6 @@ python src/yuh_csv_ifu.py 2024 -s --declaration-deadline 2025-05-15
 
 ---
 
-## Why was `-f` removed as the shorthand for `--folder`?
-
-The `-f` flag was reassigned to mean "formal penalty scenario" (40 % surcharge) when the `-s`/`-f`/`-ff` penalty shortcuts were introduced. Use the long form `--folder` instead. The default (`transactions/`) is correct for most setups, so this only affects users who were explicitly passing `-f <path>` on the command line.
-
----
-
-## What is the output directory structure under `ifu/`?
-
-```
-ifu/
-├── yuh/
-│   └── <year>/       ← yuh_csv_ifu.py output (gains, dividends, summary…)
-├── wise/
-│   └── <year>/       ← wise_csv_ifu.py output
-└── <year>/
-    └── README.md     ← unified_readme.py consolidated summary
-```
-
-Broker-specific outputs are grouped by broker then year. The unified README sits at the year level so all data for a given fiscal year is visible in one place.
-
----
-
-## What does `unified_readme.py` produce?
-
-A single `ifu/<year>/README.md` with one table per tax form, showing the exact values to type into the online French tax return:
-
-- **Formulaire 2074** — Yuh and Wise gains shown separately, then combined with the final case (3VG or 3VH) and rounded integer to enter.
-- **Formulaire 2042** — 2DC, 2TR, and 2AB values from Yuh dividends.
-- **Formulaire 3916** — checklist of foreign accounts to declare (inferred from which broker data is present).
-- **Penalty block** — if a `-s`/`-f`/`-ff` flag is passed, the late-declaration penalty estimate for the combined gain.
-
-Run it after both broker scripts have generated their CSVs for the year.
-
----
-
 ## Who is supposed to file the IFU 2561 — the broker or me?
 
 The IFU 2561 is filed by the **établissement payeur** (the broker), not by the individual investor. It is a legal obligation under art. 242 ter CGI that applies only to French-domiciled payers.
@@ -266,39 +157,17 @@ This deadline applies to the établissement payeur (broker). For your personal t
 
 ## I hold only ETFs, no individual stocks. Does the 40 % abattement ever apply to my dividends?
 
-No. The 40 % abattement (IFU zone AY / form 2042 ligne 2DC) applies exclusively to distributions from **companies** (*revenus distribués éligibles* under art. 158-3-2° CGI). ETF distributions are never eligible, regardless of how they are labelled by the broker.
+No. The 40 % abattement (IFU zone AY — *revenus distribués éligibles à l'abattement* / form 2042 ligne 2DC) applies exclusively to distributions from **companies** (*revenus distribués éligibles* under art. 158-3-2° CGI). ETF distributions are never eligible, regardless of how they are labelled by the broker.
 
-With a 100 % ETF portfolio, all distributions go to **zone AZ / ligne 2TR** only. Zone AY stays zero and no split is needed.
+With a 100 % ETF portfolio, all distributions go to **zone AZ** (*revenus distribués non éligibles à l'abattement*) **/ ligne 2TR** only. Zone AY stays zero and no split is needed.
 
 ---
 
 ## What is zone AN on the IFU 2561?
 
-Zone AN is the **total gross proceeds** from all securities sales during the year, expressed in euros. It must be reported even if the net gain is zero or negative.
+Zone AN (*montant brut des cessions de valeurs mobilières*) is the **total gross proceeds** from all securities sales during the year, expressed in euros. It must be reported even if the net gain is zero or negative.
 
 In the script output, compute it by summing `credit_eur` across all sell rows in `<year>_transactions.csv`.
-
----
-
-## Can a script automatically fill in the IFU PDF forms?
-
-No — the official PDFs (`2561_R24.pdf`, `2561_ter_R24.pdf`) are **flat, non-interactive** files with no fillable AcroForm fields. They are explicitly labelled *"Support visuel uniquement — Ne pas envoyer à la DGFiP"*.
-
-The most practical alternative is a **summary report script** that reads the CSV outputs and prints each IFU zone value alongside the corresponding 2042 / 2074 line to type into the online declaration at impots.gouv.fr.
-
----
-
-## Where are the official IFU PDF forms stored in this project?
-
-In `tax_forms/<year>/`. For 2024 income:
-
-| File | Content |
-|------|---------|
-| `tax_forms/2024/2561_NOT_R25_notice.pdf` | Explanatory notice (filing rules, field descriptions) |
-| `tax_forms/2024/2561_R24.pdf` | Main form (zones AN, AY, AZ, AA, AD, …) |
-| `tax_forms/2024/2561_ter_R24.pdf` | Tax credit certificate (zones 2AB, 2CK, capital gains summary) |
-
-These files are for reference only and are not submitted to the DGFiP.
 
 ---
 
@@ -324,14 +193,6 @@ All three scripts (`yuh_csv_ifu.py`, `wise_csv_ifu.py`, `unified_readme.py`) fol
 
 ---
 
-## Which files are gitignored?
-
-- `transactions/` — personal CSV exports from Yuh and Wise
-- `guide-investissement-frontalier*.md` — personal reference documents
-- `ifu/` output files (optional, depending on local config)
-
----
-
 ## Does Wise provide raw transaction data for investments?
 
 Yes, via two formats:
@@ -345,29 +206,18 @@ The CSV is exported from the Wise account under Assets → Statement. The PDF is
 
 ---
 
-## Why does the Wise script recompute gains instead of using the annual PDF tax report?
+## Which Yuh activity types generate fees?
 
-Two reasons:
+The main ones are:
 
-1. **Wrong method**: Wise's PDF uses FIFO (*First In First Out*). French law (art. 150-0 D CGI) requires PMP (*Prix Moyen Pondéré*). The two methods give different results whenever shares bought at different prices are partially sold.
+| Activity type | What triggers it |
+|---|---|
+| `BANK_ORDER_EXECUTED` | Manual currency exchange |
+| `BANK_AUTO_ORDER_EXECUTED` | Automatic CHF ↔ foreign currency exchange on invest orders |
+| `INVEST_RECURRING_ORDER_EXECUTED` | Recurring invest order commission |
+| `INVEST_ORDER_EXECUTED` | One-off invest order commission |
 
-2. **Incomplete history**: The PDF only lists buys that are FIFO-matched to that year's sells. Buys for positions still held at 31 December are absent, making it impossible to compute a correct PMP for future years from the PDF alone.
-
-The raw CSV contains all transactions and is sufficient for an exact PMP computation.
-
----
-
-## What is the difference between `wise_csv_ifu.py` and `wise_pdf_ifu.py`?
-
-| | `wise_csv_ifu.py` | `wise_pdf_ifu.py` |
-|-|-------------------|-------------------|
-| Input | `wise_assets_statement_*.csv` | `wise_tax_statement_*.pdf` |
-| History | Complete (all buys including unrealized) | Partial (only FIFO-matched buys) |
-| Parsing | Simple CSV reader | PDF text extraction via `pdfplumber` |
-| Use | **Primary — run this** | Cross-check / fallback |
-| Extra dependency | none beyond `requests` | `pip install pdfplumber` |
-
-Use `wise_pdf_ifu.py` only to sanity-check totals against Wise's own FIFO numbers.
+`REWARD_RECEIVED`, `PAYMENT_TRANSACTION_IN/OUT`, and `CASH_TRANSACTION_*` rows carry zero fees and do not appear in the `fees_by_activity.py` output.
 
 ---
 
