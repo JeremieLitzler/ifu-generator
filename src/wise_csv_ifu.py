@@ -43,7 +43,6 @@ Dépendances :
 """
 import argparse
 import csv
-import json
 import math
 import sys
 from dataclasses import dataclass, asdict
@@ -56,11 +55,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-try:
-    import requests
-except ImportError:
-    print("Dépendance manquante : pip install requests", file=sys.stderr)
-    sys.exit(1)
+from fx_cache import FXCache
 
 
 # ---------------------------------------------------------------------------
@@ -71,47 +66,6 @@ WISE_FUNDS: dict[str, str] = {
     'IE00B41N0724': 'EUR Interest fund',  # BlackRock ICS EUR Liquidity Fund (Irlande)
     'LU0852473015': 'Stocks fund',        # iShares World Equity Index Fund / MSCI World (Luxembourg)
 }
-
-
-# ---------------------------------------------------------------------------
-# Cache BCE multi-devises
-# ---------------------------------------------------------------------------
-class FXCache:
-    """Cache persistant des taux {currency}→EUR BCE via api.frankfurter.dev."""
-
-    API = "https://api.frankfurter.dev/v1/{date}?from={currency}&to=EUR"
-
-    def __init__(self, cache_path: Path):
-        self.cache_path = cache_path
-        self.cache: dict = {}
-        if cache_path.exists():
-            try:
-                self.cache = json.loads(cache_path.read_text())
-            except Exception:
-                self.cache = {}
-
-    def _save(self):
-        self.cache_path.write_text(json.dumps(self.cache, indent=2, sort_keys=True))
-
-    def get(self, d: date, currency: str = 'EUR') -> tuple[float, str]:
-        """Retourne (taux→EUR, date_BCE_réelle). Retourne (1.0, isodate) pour EUR."""
-        if currency == 'EUR':
-            return 1.0, d.isoformat()
-        key = f"{d.isoformat()}_{currency}"
-        if key in self.cache:
-            e = self.cache[key]
-            return e['rate'], e['bce_date']
-        url = self.API.format(date=d.isoformat(), currency=currency)
-        r = requests.get(url, timeout=15)
-        r.raise_for_status()
-        payload = r.json()
-        if 'rates' not in payload or 'EUR' not in payload['rates']:
-            raise RuntimeError(f"Réponse inattendue pour {key}: {payload}")
-        rate = float(payload['rates']['EUR'])
-        bce_date = payload.get('date', d.isoformat())
-        self.cache[key] = {'rate': rate, 'bce_date': bce_date}
-        self._save()
-        return rate, bce_date
 
 
 # ---------------------------------------------------------------------------
