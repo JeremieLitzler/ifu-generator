@@ -182,6 +182,20 @@ The raw CSV contains all transactions and is sufficient for an exact PMP computa
 
 ---
 
+## Does the project require any external Python packages?
+
+No. Every script uses only the Python standard library — no `pip install` needed.
+
+| Module | Source |
+|--------|--------|
+| `argparse`, `csv`, `json`, `math`, `re`, `sys` | Standard library |
+| `collections`, `dataclasses`, `datetime`, `pathlib`, `typing` | Standard library |
+| `constants`, `ticker_isin` | Local modules within `src/` |
+
+Python 3.7+ is sufficient to run all scripts.
+
+---
+
 ## How do I use `fees_by_activity.py` to audit my Yuh broker fees?
 
 Run `python fees_by_activity.py <year>` (e.g., `python fees_by_activity.py 2023`). It reads `transactions/ACTIVITIES_REPORT-<year>.CSV`, sums the `FEES/COMMISSION` column grouped by `ACTIVITY TYPE`, and prints a table with a grand total. Use `--folder` to point to a different directory.
