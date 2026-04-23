@@ -8,7 +8,8 @@
       "Bash(python:*)",
       "WebSearch",
       "WebFetch(domain:bofip.impots.gouv.fr)",
-      "Bash(rtk ls *)"
+      "Bash(rtk ls *)",
+      "Bash(gh issue *)"
     ]
   }
 }
