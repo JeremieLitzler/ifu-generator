@@ -94,6 +94,32 @@ Yes. For Yuh, the cost basis of a buy = `abs(DEBIT)`, which includes the Yuh com
 
 ---
 
+## How are BANK_AUTO_ORDER_EXECUTED auto-exchange fees matched to a specific buy order?
+
+The script matches each auto-exchange fee to a buy transaction using two criteria: (1) same date, and (2) same foreign currency (the exchange's `CREDIT CURRENCY` equals the buy's `DEBIT CURRENCY`). When exactly one buy satisfies both criteria, the CHF fee is converted to EUR at the BCE rate for that date and added to that transaction's `exchange_fee_eur` field, which flows into the PMP cost basis.
+
+Amount-based matching is not used — the exchanged USD amount and the buy's USD debit are not expected to match exactly due to how Yuh books the two legs internally.
+
+---
+
+## What happens when an auto-exchange fee cannot be attributed to a specific buy?
+
+It is reported in the "Frais d'autochange non attribués" section of the console summary and `README.md` with both its original CHF value and the BCE-converted EUR equivalent. A warning is printed if the ambiguity is caused by multiple buy orders in the same foreign currency on the same day. Truly unmatched fees (no buy found at all) are treated the same way.
+
+---
+
+## Does auto-exchange fee attribution apply to recurring invest orders?
+
+Yes. Both `INVEST_ORDER_EXECUTED` and `INVEST_RECURRING_ORDER_EXECUTED` rows are treated as buy transactions for matching purposes. If a `BANK_AUTO_ORDER_EXECUTED` row on the same date shares the same foreign currency, the fee is attributed regardless of which invest activity type triggered it.
+
+---
+
+## Is there an audit trail for attributed auto-exchange fees in the output CSVs?
+
+Yes. The `*_transactions.csv` output includes an `exchange_fee_eur` column showing the EUR-converted auto-exchange fee attributed to each buy transaction. A value of `0.0` means no fee was attributed — either the buy was in CHF (no auto-exchange needed) or the fee was ambiguous/unmatched and reported in the lump-sum section instead.
+
+---
+
 ## Are Wise management fees deductible?
 
 No — and this applies under **both** PFU and the barème progressif option.
@@ -175,6 +201,22 @@ Pass the flag to any of the three scripts (`yuh_csv_ifu.py`, `wise_csv_ifu.py`, 
 
 ---
 
+## Can I override the assumed declaration deadline when calculating penalties?
+
+Yes — pass `--declaration-deadline YYYY-MM-DD` alongside `-s`/`-f`/`-ff` or `-cldp`. The default deadline is **June 1 of the year following the tax year** (e.g. `2025-06-01` for 2024 income). Override it if your specific deadline was earlier, for example the paper deadline in mid-May or an online deadline for an earlier fiscal zone.
+
+```bash
+python src/yuh_csv_ifu.py 2024 -s --declaration-deadline 2025-05-15
+```
+
+---
+
+## Why was `-f` removed as the shorthand for `--folder`?
+
+The `-f` flag was reassigned to mean "formal penalty scenario" (40 % surcharge) when the `-s`/`-f`/`-ff` penalty shortcuts were introduced. Use the long form `--folder` instead. The default (`transactions/`) is correct for most setups, so this only affects users who were explicitly passing `-f <path>` on the command line.
+
+---
+
 ## What is the output directory structure under `ifu/`?
 
 ```
@@ -201,6 +243,62 @@ A single `ifu/<year>/README.md` with one table per tax form, showing the exact v
 - **Penalty block** — if a `-s`/`-f`/`-ff` flag is passed, the late-declaration penalty estimate for the combined gain.
 
 Run it after both broker scripts have generated their CSVs for the year.
+
+---
+
+## Who is supposed to file the IFU 2561 — the broker or me?
+
+The IFU 2561 is filed by the **établissement payeur** (the broker), not by the individual investor. It is a legal obligation under art. 242 ter CGI that applies only to French-domiciled payers.
+
+Yuh/Swissquote and Wise are Swiss brokers — they are not subject to French tax reporting obligations and **do not file an IFU** on your behalf. You must declare your income yourself via form **2042** (dividends) and **2074** (capital gains).
+
+This project generates the data that a French broker *would* have put in an IFU, so you can fill in your own tax return correctly.
+
+---
+
+## What is the IFU 2561 filing deadline?
+
+**15 February** of the year following the income year (e.g. 15 February 2025 for 2024 income). A one-day administrative tolerance may push this to the following Monday.
+
+This deadline applies to the établissement payeur (broker). For your personal tax return (form 2042), the deadline is the standard late May / early June deadline set each year by the DGFiP for online declarations.
+
+---
+
+## I hold only ETFs, no individual stocks. Does the 40 % abattement ever apply to my dividends?
+
+No. The 40 % abattement (IFU zone AY / form 2042 ligne 2DC) applies exclusively to distributions from **companies** (*revenus distribués éligibles* under art. 158-3-2° CGI). ETF distributions are never eligible, regardless of how they are labelled by the broker.
+
+With a 100 % ETF portfolio, all distributions go to **zone AZ / ligne 2TR** only. Zone AY stays zero and no split is needed.
+
+---
+
+## What is zone AN on the IFU 2561?
+
+Zone AN is the **total gross proceeds** from all securities sales during the year, expressed in euros. It must be reported even if the net gain is zero or negative.
+
+In the script output, compute it by summing `credit_eur` across all sell rows in `<year>_transactions.csv`.
+
+---
+
+## Can a script automatically fill in the IFU PDF forms?
+
+No — the official PDFs (`2561_R24.pdf`, `2561_ter_R24.pdf`) are **flat, non-interactive** files with no fillable AcroForm fields. They are explicitly labelled *"Support visuel uniquement — Ne pas envoyer à la DGFiP"*.
+
+The most practical alternative is a **summary report script** that reads the CSV outputs and prints each IFU zone value alongside the corresponding 2042 / 2074 line to type into the online declaration at impots.gouv.fr.
+
+---
+
+## Where are the official IFU PDF forms stored in this project?
+
+In `tax_forms/<year>/`. For 2024 income:
+
+| File | Content |
+|------|---------|
+| `tax_forms/2024/2561_NOT_R25_notice.pdf` | Explanatory notice (filing rules, field descriptions) |
+| `tax_forms/2024/2561_R24.pdf` | Main form (zones AN, AY, AZ, AA, AD, …) |
+| `tax_forms/2024/2561_ter_R24.pdf` | Tax credit certificate (zones 2AB, 2CK, capital gains summary) |
+
+These files are for reference only and are not submitted to the DGFiP.
 
 ---
 
