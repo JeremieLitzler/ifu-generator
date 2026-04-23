@@ -187,3 +187,31 @@ EOF
 ```
 
 Report the PR URL to the user.
+
+---
+
+## Step 7b — Human review: PR
+
+Report the PR URL and a brief summary of what it contains. Ask the user:
+
+> "Does the PR look good? Ready to merge?"
+
+Wait for explicit approval before proceeding to Step 8. If the user requests changes, apply them, push, and repeat this step.
+
+---
+
+## Step 8 — Merge the PR
+
+Run:
+
+```bash
+rtk gh pr merge <pr-number> --squash --delete-branch
+```
+
+Then pull main locally to stay in sync:
+
+```bash
+rtk git checkout main && rtk git pull
+```
+
+Report that the PR was merged and the branch deleted.
