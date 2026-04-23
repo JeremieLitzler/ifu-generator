@@ -17,6 +17,7 @@ Shell wrappers in `scripts/` call the Python scripts from the repo root.
 
 ## Bash command rules
 
+- **Always prefix `git` commands with `rtk`**: use `rtk git …` for every git command (e.g. `rtk git status`, `rtk git commit`, `rtk git push`).
 - **Always prefix `gh` commands with `rtk`**: use `rtk gh …` for every GitHub CLI call (e.g. `rtk gh issue list`, `rtk gh issue create`, `rtk gh pr view`).
 
 ## Architecture — yuh_csv_ifu.py

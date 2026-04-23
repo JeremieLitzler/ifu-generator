@@ -3,13 +3,14 @@
     "allow": [
       "Bash(python3 -c ':*)",
       "Bash(python yuh_csv_ifu.py *)",
-      "Bash(rtk git:*)",
+      "Bash(rtk git *)",
       "WebFetch(domain:www.impots.gouv.fr)",
       "Bash(python:*)",
       "WebSearch",
       "WebFetch(domain:bofip.impots.gouv.fr)",
       "Bash(rtk ls *)",
-      "Bash(rtk gh *)"
+      "Bash(rtk gh *)",
+      "Bash(git commit *)"
     ]
   }
 }
