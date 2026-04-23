@@ -15,6 +15,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Shell wrappers in `scripts/` call the Python scripts from the repo root.
 
+## Bash command rules
+
+- **Always prefix `gh` commands with `rtk`**: use `rtk gh …` for every GitHub CLI call (e.g. `rtk gh issue list`, `rtk gh issue create`, `rtk gh pr view`).
+
 ## Architecture — yuh_csv_ifu.py
 
 1. **CSV parsing** (`parse_csv_file`) — UTF-8 BOM, semicolon-delimited. Filters `INVEST_*` (buy/sell), `CASH_TRANSACTION_RELATED_OTHER` (dividends), `BANK_AUTO_ORDER_EXECUTED` Autoexchange (exchange fees). Resolves ticker→ISIN via `ticker_isin.py`.

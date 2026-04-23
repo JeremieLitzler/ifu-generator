@@ -9,7 +9,9 @@
       "WebSearch",
       "WebFetch(domain:bofip.impots.gouv.fr)",
       "Bash(rtk ls *)",
-      "Bash(gh issue *)"
+      "Bash(gh issue *)",
+      "Bash(rtk gh *)",
+      "Bash(gh api *)"
     ]
   }
 }

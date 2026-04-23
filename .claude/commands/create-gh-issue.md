@@ -57,7 +57,7 @@ Sort issues: issues with no dependencies first, then issues that depend on alrea
 
 For each issue, run:
 ```bash
-gh issue create \
+rtk gh issue create \
   --title "<title>" \
   --body "$(cat <<'EOF'
 <body>
