@@ -5,7 +5,9 @@
       "Bash(python yuh_csv_ifu.py *)",
       "Bash(rtk git:*)",
       "WebFetch(domain:www.impots.gouv.fr)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "WebSearch",
+      "WebFetch(domain:bofip.impots.gouv.fr)"
     ]
   }
 }
