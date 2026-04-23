@@ -399,6 +399,8 @@ def main():
                         help="Alias : -cldp --penalty-scenario formal (après mise en demeure, majoration 40 %%)")
     parser.add_argument('-ff', action='store_true', dest='penalty_ff',
                         help="Alias : -cldp --penalty-scenario fraud (manœuvres frauduleuses, majoration 80 %%)")
+    parser.add_argument('--out', default='ifu',
+                        help="Dossier racine pour les fichiers de sortie (défaut: 'ifu')")
     args = parser.parse_args()
 
     # Résoudre les alias de scénario de pénalité
@@ -414,7 +416,7 @@ def main():
 
     target_year = args.year
     folder = Path(args.folder)
-    out_dir = Path('ifu') / str(target_year) / 'yuh'
+    out_dir = Path(args.out) / str(target_year) / 'yuh'
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if not folder.is_dir():

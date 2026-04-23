@@ -370,6 +370,8 @@ def main():
     parser.add_argument('-s', action='store_true', dest='penalty_s')
     parser.add_argument('-f', action='store_true', dest='penalty_f')
     parser.add_argument('-ff', action='store_true', dest='penalty_ff')
+    parser.add_argument('--out', default='ifu',
+                        help="Dossier racine pour les fichiers de sortie (défaut: 'ifu')")
     args = parser.parse_args()
 
     if args.penalty_ff:
@@ -384,7 +386,7 @@ def main():
 
     target_year = args.year
     folder = Path(args.folder)
-    out_dir = Path('ifu') / str(target_year) / 'wise'
+    out_dir = Path(args.out) / str(target_year) / 'wise'
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if not folder.is_dir():

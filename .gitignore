@@ -211,3 +211,4 @@ transactions/*.csv
 transactions/*.pdf
 ifu/
 fx_cache.json
+tests/output/
