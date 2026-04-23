@@ -2,7 +2,13 @@
 
 Generates French tax declaration data (IFU equivalent) for French-resident cross-border workers (frontaliers) holding investment accounts at **Yuh/Swissquote** and/or **Wise Assets**.
 
-Implements the **PMP method** (art. 150-0 D CGI) with ECB CHF→EUR exchange rates. Produces CSVs ready to fill in forms 2074, 2086, and 2042.
+Implements the **PMP method** (art. 150-0 D CGI) with ECB CHF→EUR exchange rates. 
+
+Produces per year and  broker:
+- CSVs with detailed data, if the authorities ask for them
+- a summary Markdown file. 
+
+A unified Markdown summary per year provide the figures to fill in forms 2074, 2086, and 2042.
 
 ---
 
