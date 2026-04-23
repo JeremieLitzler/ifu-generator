@@ -7,7 +7,8 @@
       "WebFetch(domain:www.impots.gouv.fr)",
       "Bash(python:*)",
       "WebSearch",
-      "WebFetch(domain:bofip.impots.gouv.fr)"
+      "WebFetch(domain:bofip.impots.gouv.fr)",
+      "Bash(rtk ls *)"
     ]
   }
 }
