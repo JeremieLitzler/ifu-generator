@@ -76,6 +76,12 @@ PMP (*Prix Moyen Pondéré*) is the weighted average cost method required by Fre
 
 ---
 
+## Why does the script say "PMP calculé sur X fichier(s) CSV" when I only asked for one year?
+
+Because PMP requires the **full purchase history**, not just the target year. If you bought 10 shares in 2022, added 5 in 2023, and sold 8 in 2024, the correct cost basis for the 2024 sale depends on all the 2022 and 2023 buys. The script reads every `ACTIVITIES_REPORT-*.CSV` file in the transactions folder to build the complete history, then filters the output to the target year only.
+
+---
+
 ## What exchange rate is used for CHF/USD → EUR conversion?
 
 ECB (European Central Bank) rates fetched via `api.frankfurter.dev`. If a transaction falls on a weekend or public holiday, the last business day's rate is used — the standard DGFiP practice.
@@ -102,7 +108,56 @@ The fees are logged in `<year>_fees.csv` for records but have no impact on the c
 
 ## How are crypto-ETPs handled?
 
-Gains on crypto-ETPs (e.g. WisdomTree BTC/ETH) are reported separately in `<year>_gains_2086.csv` for form 2086. The list of crypto-ETP ISINs is maintained in `CRYPTO_ETP_ISINS` inside `src/yuh_csv_ifu.py` and must be updated when new ones are held.
+Crypto-ETPs (WisdomTree, CoinShares, ETC Group, etc.) are classified as **valeurs mobilières** and their gains go on **form 2074**, not form 2086. Legal basis: art. L. 54-10-1 CMF defines *actifs numériques* and explicitly excludes financial instruments (art. L. 211-1 CMF). Crypto-ETPs are admitted to trading on regulated markets (LSE, Xetra, Euronext), carry an ISIN, and are issued by regulated entities — so they fall outside the art. 150 VH bis CGI / form 2086 regime by statute (confirmed at BOI-RPPM-PVBMI-70-10-10 §20–30).
+
+A precautionary `<year>_gains_2086.csv` is also produced in case the DGFiP ever issues a contrary ruling, but **do not file form 2086 for these instruments**. The list of crypto-ETP ISINs is maintained in `CRYPTO_ETP_ISINS` inside `src/yuh_csv_ifu.py` and must be updated when new ones are held.
+
+---
+
+## How are dividends classified between ligne 2DC and 2TR on form 2042?
+
+The script derives the classification automatically from the ISIN:
+
+- **ISIN prefix `FR`** → ligne **2DC** (eligible for the 40 % abatement under art. 158-3-2° CGI — French companies only)
+- **All other prefixes** (IE, US, GB, CH, LU, DE, …) → ligne **2TR** (non-eligible)
+
+This is already a maintained invariant since the ISIN is always present in `ticker_isin.py`. No manual classification is needed.
+
+---
+
+## How does the script determine whether foreign withholding tax (zone AA) applies to a dividend?
+
+It maps the two-letter ISIN country prefix to one of three regimes via the `WITHHOLDING_REGIME` dict:
+
+| Regime | Prefixes | Behaviour |
+|--------|----------|-----------|
+| `zero` | IE, LU, GB, FR | Output confirms zone AA = 0 € automatically |
+| `treaty_recoverable` | US, CH | ⚠ per-ticker warning; manual entry of `withholding_tax_native` required from the Yuh *relevé fiscal annuel* |
+| `unknown` | all others | ℹ advisory; check the applicable tax treaty |
+
+The recovered withholding goes on **ligne 2AB** of form 2042.
+
+---
+
+## Why are Irish (IE) and Luxembourg (LU) ETF dividends shown as zero withholding?
+
+Because the **fund domicile country** determines what is withheld at the investor level, not the country of the underlying holdings:
+
+- **IE** — Ireland does not withhold tax on UCITS distributions paid to non-resident investors. This is the structural reason most European ETFs are domiciled in Ireland.
+- **LU** — Luxembourg applies the same principle for UCITS funds.
+- **GB** — The UK abolished dividend withholding tax entirely; distributions to non-residents are paid gross.
+- **FR** — For a French tax resident, a French company's dividend is not "foreign withholding" — no foreign state takes a cut. Zone AA covers only tax withheld by a *foreign* country.
+
+---
+
+## What is zone DQ and how do I declare prélèvements sociaux on form 2042?
+
+Zone DQ is the line the **broker** fills on the IFU to declare the social contributions base (montant brut des revenus distribués). Since Yuh does not withhold, the gross equals the net and `base_DQ_eur` in `<year>_dividendes.csv` equals the dividend amount.
+
+For your **own form 2042** declaration:
+
+- **Under PFU (default)**: the 17.2 % prélèvements sociaux are computed automatically by the DGFiP from the amounts you enter on lines 2TR / 2DC. No separate social contributions line to fill.
+- **Under barème progressif** (opt-in): same 2TR / 2DC amounts. The CSG déductible portion (6.8 %) may additionally be reported on line **2CG**.
 
 ---
 
