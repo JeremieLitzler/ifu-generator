@@ -546,8 +546,9 @@ def main():
         h(f"| {total_proceeds:.2f} | {total_cost_sold:.2f} | {net_gain:+.2f} | "
           f"{rounded:+d} € | {box} |")
         h(f"\n> Méthode PMP obligatoire pour les résidents fiscaux français "
-          f"(art. 150-0 D CGI). Le relevé fiscal annuel Wise utilise FIFO — "
-          f"les montants ci-dessus peuvent différer.")
+          f"(art. 150-0 D CGI). Le relevé fiscal Wise utilise WAC limité à la période "
+          f"du relevé — si des positions ont été acquises les années précédentes, "
+          f"les montants peuvent différer.")
     else:
         h(f"Aucune cession en {target_year} — rien à déclarer.")
 
